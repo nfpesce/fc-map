@@ -1,61 +1,63 @@
-# Components Map · web (FC Map Web)
+# Components Map · web (FC Map)
 
-Explorador visual de la cadena `PPN → SBB → FC → Option`, publicado como sitio estático (GitHub Pages).
-**Los datos nunca se publican ni se suben**: cada usuario selecciona sus archivos locales y el navegador los procesa en su propio equipo.
+**Live app: https://nfpesce.github.io/fc-map/**
 
-## Cómo funciona
+Visual explorer for the `PPN → SBB → FC → Option` relationship chain, published as a static site on GitHub Pages.
+**Data is never published or uploaded.** Each user selects their own local files and the browser processes them on their own machine.
 
-| Pieza | Dónde corre | Qué hace |
+## How it works
+
+| Component | Where it runs | What it does |
 |---|---|---|
-| Interfaz (Next.js, export estático) | GitHub Pages | Solo HTML/JS/CSS. No contiene datos. |
-| Motor de datos (`lib/engine/data.worker.ts`) | Web Worker en el navegador del usuario | Lee el CSV en streaming, lo indexa en columnas y arma el grafo con los filtros activos. |
-| Caché (`lib/engine/storage.ts`) | IndexedDB del navegador | Guarda el dataset procesado, TCE y Revenue para que la próxima visita abra al instante. |
+| UI (Next.js static export) | GitHub Pages | HTML/JS/CSS only. Contains no data. |
+| Data engine (`lib/engine/data.worker.ts`) | Web Worker in the user's browser | Streams the CSV, builds a columnar index and generates the graph for the active filters. |
+| Cache (`lib/engine/storage.ts`) | Browser IndexedDB | Keeps the processed dataset, TCE and Revenue data so the next visit opens instantly. |
 
-La lógica de negocio es la misma que tenía `app/api/graph/route.ts` (portada a `lib/engine/graph-core.ts`):
-exclusión de `SYSTEM_SBB`, de FC con más de cuatro caracteres y de `opt = NULL`; filtros facetados con OR dentro de cada dimensión y AND entre dimensiones; `Remove dummy`, Family, TCE y Revenue.
+The business logic is the same as the former `app/api/graph/route.ts` (ported to `lib/engine/graph-core.ts`):
+`SYSTEM_SBB`, FC ids longer than four characters and `opt = NULL` are excluded; faceted filters use OR within a dimension and AND across dimensions; `Remove dummy`, Family, TCE and Revenue behave as before.
 
-Garantías de privacidad:
+Privacy guarantees:
 
-- No hay servidor ni rutas `/api`; el sitio es 100 % estático.
-- La página se publica con `Content-Security-Policy: connect-src 'self'`, así que técnicamente no puede enviar datos a otro dominio.
-- El workflow de publicación falla si detecta archivos `.csv`/`.xlsx` versionados en el repositorio.
-- `Remove data stored in this browser` (panel Source) borra la caché local.
+- No server and no `/api` routes; the site is 100% static.
+- The page ships with `Content-Security-Policy: connect-src 'self'`, so it technically cannot send data to any other domain.
+- The deployment workflow fails if any `.csv`/`.xlsx` file is tracked in the repository.
+- `Remove data stored in this browser` (Source panel) clears the local cache.
 
-## Uso
+## Usage
 
-1. Abrir la URL del sitio (Chrome o Edge recomendados).
-2. Seleccionar o arrastrar los archivos locales. Se pueden elegir los tres a la vez; los Excel se detectan automáticamente por sus columnas:
-   - `Magellan PPN Tool Extended Export.csv` (obligatorio).
-   - `TCE Selection.xlsx` (opcional, habilita `Show TCE only`).
-   - `Revenue Contribution.xlsx` (opcional, habilita `Revenue Contribution & Units` en Zoom In).
-3. Elegir el `comm2` inicial. En las visitas siguientes el mapa se abre desde la caché del navegador sin volver a seleccionar archivos.
-4. Para actualizar los datos, elegir un CSV o Excel nuevo desde el panel lateral.
+1. Open https://nfpesce.github.io/fc-map/ (Chrome or Edge recommended).
+2. Select or drop your local files. You can pick all three at once; workbooks are detected automatically by their columns:
+   - `Magellan PPN Tool Extended Export.csv` (required).
+   - `TCE Selection.xlsx` (optional, enables `Show TCE only`).
+   - `Revenue Contribution.xlsx` (optional, enables `Revenue Contribution & Units` in Zoom In).
+3. Choose the initial `comm2`. On later visits the map opens from the browser cache without selecting files again.
+4. To refresh the data, pick a new CSV or workbook from the sidebar.
 
-## Desarrollo
+## Development
 
 ```bash
 pnpm install
 pnpm dev          # http://localhost:3000
 pnpm lint
-pnpm build        # genera out/ (sitio estático)
-pnpm start        # sirve out/ localmente
+pnpm build        # generates out/ (static site)
+pnpm start        # serves out/ locally
 pnpm test:equivalence "../data_to_import/Magellan PPN Tool Extended Export.csv"
 ```
 
-`test:equivalence` compara el motor nuevo contra el pipeline original del servidor (`csv-parse` + `route.ts`, copia en `tests/equivalence/legacy-route.ts`) sobre un CSV real: filas, diccionarios, opciones de filtros y grafos completos para varias combinaciones.
+`test:equivalence` compares the new engine against the original server pipeline (`csv-parse` + `route.ts`, kept in `tests/equivalence/legacy-route.ts`) on a real CSV: row count, dictionaries, filter options and full graphs for several filter combinations.
 
-Resultado de referencia con el CSV de 143 MB (442.605 filas): todo idéntico; parseo 2 s (vs 7,8 s del servidor anterior); en Chromium, 2,9 s desde la selección del archivo hasta el diálogo de comm2 y 0,3 s al reabrir desde la caché.
+Reference results with the 143 MB CSV (442,605 rows): identical output; parsing takes 2 s (vs 7.8 s on the former server); in Chromium, 2.9 s from file selection to the comm2 dialog and 0.3 s to reopen from the cache.
 
-## Publicación en GitHub Pages
+## Deployment to GitHub Pages
 
-El workflow `.github/workflows/pages.yml` compila y publica en cada push a `main`. Toma `PAGES_BASE_PATH=/<nombre-del-repo>`.
-Requisito único: en GitHub → Settings → Pages → Source: **GitHub Actions**.
+The `.github/workflows/pages.yml` workflow builds and deploys on every push to `main`, using `PAGES_BASE_PATH=/<repo-name>`.
+One-time setup: GitHub → Settings → Pages → Source: **GitHub Actions** (already configured for this repository).
 
-## Estructura
+## Structure
 
 ```
-app/                 UI (relationship-map.tsx, layout con CSP, estilos)
-lib/engine/          motor local: graph-core, csv-stream, tce-core, revenue-core, storage, data.worker, client
-tests/equivalence/   comparación contra el backend original
-.github/workflows/   publicación en GitHub Pages
+app/                 UI (relationship-map.tsx, layout with CSP, styles)
+lib/engine/          local engine: graph-core, csv-stream, tce-core, revenue-core, storage, data.worker, client
+tests/equivalence/   comparison against the original backend
+.github/workflows/   GitHub Pages deployment
 ```
