@@ -1,0 +1,34 @@
+{
+  "name": "fc-map-web",
+  "version": "2.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npx --yes serve@14 out",
+    "lint": "eslint . --ignore-pattern .next --ignore-pattern .next-build --ignore-pattern out",
+    "test:equivalence": "tsx tests/equivalence/compare.ts"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "react-force-graph-2d": "^1.29.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "typescript": "5.9.3",
+    "csv-parse": "^6.1.0",
+    "tsx": "^4.20.0"
+  },
+  "type": "module"
+}
