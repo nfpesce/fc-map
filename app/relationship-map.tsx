@@ -8,6 +8,7 @@ import {
   Trash2,
   ChevronRight,
   FileSpreadsheet,
+  FolderOpen,
   Focus,
   GitBranch,
   Maximize2,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { localEngine, requestPersistentStorage } from "../lib/engine/client";
+import { EXPECTED_FILES, pickDataFolder, rememberedFolderName, reloadRememberedFolder, selectDataFiles, supportsDirectoryPicker, type FolderSelection } from "../lib/engine/folder";
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
 
@@ -405,6 +407,9 @@ export function RelationshipMap({ appVersion }: { appVersion: string }) {
   const [hasLocalData, setHasLocalData] = useState<boolean | null>(null);
   const [revenueError, setRevenueError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [folderName, setFolderName] = useState<string | null>(null);
+  const [folderReport, setFolderReport] = useState<string | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadGraph = useCallback(async (filters: FilterSelections, familyFilter: string, expectedRows = 0, allowUnfiltered = true, removeDummy = true) => {
     setLoading(true);
@@ -634,6 +639,59 @@ export function RelationshipMap({ appVersion }: { appVersion: string }) {
     if (files.length) void processLocalFiles(files);
   }, [processLocalFiles]);
 
+  /** Imports the three data files found in one folder: workbooks first, then the CSV (which opens the comm2 dialog). */
+  const processFolderSelection = useCallback(async (selection: FolderSelection) => {
+    setUploadError(null);
+    const found = ([["csv", selection.csv], ["tce", selection.tce], ["revenue", selection.revenue]] as const)
+      .filter(([, file]) => file).map(([, file]) => file!.name);
+    const missing = ([["csv", selection.csv], ["tce", selection.tce], ["revenue", selection.revenue]] as const)
+      .filter(([, file]) => !file).map(([key]) => EXPECTED_FILES[key]);
+    setFolderReport(`${selection.folderName}: ${found.length ? `found ${found.join(", ")}` : "no data files found"}${missing.length ? ` · missing ${missing.join(", ")}` : ""}`);
+    if (!selection.csv) {
+      setUploadError(`"${EXPECTED_FILES.csv}" was not found in the folder "${selection.folderName}".`);
+      return;
+    }
+    setFolderName(selection.folderName);
+    if (selection.tce) await processTceFile(selection.tce);
+    if (selection.revenue) await processRevenueFile(selection.revenue);
+    await processCsvFile(selection.csv);
+  }, [processCsvFile, processRevenueFile, processTceFile]);
+
+  const selectDataFolder = useCallback(async () => {
+    if (!supportsDirectoryPicker()) {
+      folderInputRef.current?.click();
+      return;
+    }
+    try {
+      const selection = await pickDataFolder();
+      if (selection) await processFolderSelection(selection);
+    } catch (folderError) {
+      setUploadError(folderError instanceof Error ? folderError.message : "The folder could not be read.");
+    }
+  }, [processFolderSelection]);
+
+  const selectFolderFallback = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!files.length) return;
+    const relativePath = (files[0] as File & { webkitRelativePath?: string }).webkitRelativePath ?? "";
+    await processFolderSelection(selectDataFiles(files, relativePath.split("/")[0] || "Selected folder"));
+  }, [processFolderSelection]);
+
+  const reloadFromFolder = useCallback(async () => {
+    try {
+      const selection = await reloadRememberedFolder();
+      if (selection) await processFolderSelection(selection);
+      else setFolderName(null);
+    } catch (folderError) {
+      setUploadError(folderError instanceof Error ? folderError.message : "The folder could not be read.");
+    }
+  }, [processFolderSelection]);
+
+  useEffect(() => {
+    void rememberedFolderName().then(setFolderName).catch(() => setFolderName(null));
+  }, []);
+
   const forgetLocalData = useCallback(async () => {
     if (!window.confirm("Remove the data stored in this browser? Your original files are not affected.")) return;
     await localEngine.clear();
@@ -651,6 +709,8 @@ export function RelationshipMap({ appVersion }: { appVersion: string }) {
     setFamilyDraft("");
     setError(null);
     setUploadError(null);
+    setFolderName(null);
+    setFolderReport(null);
   }, []);
 
   const applyFacetFilter = useCallback(async (key: FilterKey, values: string[]) => {
@@ -1133,6 +1193,14 @@ export function RelationshipMap({ appVersion }: { appVersion: string }) {
 
   return (
     <main className="app-shell">
+      <input
+        ref={folderInputRef}
+        type="file"
+        className="visually-hidden-input"
+        onChange={(event) => void selectFolderFallback(event)}
+        aria-label="Select data folder"
+        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+      />
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark"><GitBranch size={18} /></div>
@@ -1301,18 +1369,6 @@ export function RelationshipMap({ appVersion }: { appVersion: string }) {
               </span>
               <span className="layer-switch" aria-hidden="true"><span /></span>
             </button>
-            <label className="tce-file-picker">
-              <Upload size={12} />
-              <span>{tceData?.available ? `Source: ${tceData.source?.fileName ?? "TCE file"} · Change` : "Select TCE Excel file"}</span>
-              <input ref={tceFileInputRef} type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => void uploadTceWorkbook(event)} disabled={tceLoading} aria-label="Select TCE Excel file" />
-            </label>
-            {tceError && <p className="tce-file-error">{tceError}</p>}
-            <label className="tce-file-picker">
-              <Upload size={12} />
-              <span>{revenueContributionData?.available ? `Revenue: ${revenueContributionData.source?.fileName ?? "file"} · Change` : "Select Revenue Contribution file"}</span>
-              <input type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => void uploadRevenueWorkbook(event)} disabled={revenueContributionLoading} aria-label="Select Revenue Contribution Excel file" />
-            </label>
-            {revenueError && <p className="tce-file-error">{revenueError}</p>}
           </section>
 
           <section className="section compact-summary-section">
@@ -1342,22 +1398,46 @@ export function RelationshipMap({ appVersion }: { appVersion: string }) {
 
           <section className="section">
             <h2 className="section-title">Source</h2>
-            <div className="source-card">
-              <strong>{data?.source.fileName ?? (hasLocalData === false ? "No CSV selected" : "Loading file…")}</strong>
-              <span>{data ? `Format ${data.source.sheetName} · updated ${sourceDate}` : hasLocalData === false ? "Choose the Magellan CSV from this computer" : "Reading data"}</span>
+            <button className="folder-button" type="button" onClick={() => void (folderName && hasLocalData !== false ? reloadFromFolder() : selectDataFolder())} disabled={uploading || loading}>
+              <FolderOpen size={13} />
+              <span>{folderName ? `Reload from folder "${folderName}"` : "Select data folder"}</span>
+            </button>
+            {folderName && <button className="folder-change-link" type="button" onClick={() => void selectDataFolder()} disabled={uploading || loading}>Choose another folder</button>}
+            <div className="source-files">
+              <label className={`source-file ${data ? "loaded" : ""} ${uploading ? "busy" : ""}`}>
+                <span className="source-file-status" aria-hidden="true">{data ? "✓" : "1"}</span>
+                <span className="source-file-copy">
+                  <small>Magellan CSV · required</small>
+                  <strong>{uploading ? "Processing file…" : data?.source.fileName ?? (hasLocalData === false ? "Not loaded" : "Loading…")}</strong>
+                  {data && <em>Updated {sourceDate}</em>}
+                </span>
+                <span className="source-file-action"><Upload size={12} />{data ? "Change" : "Select"}</span>
+                <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={(event) => void uploadWorkbook(event)} disabled={uploading} aria-label="Select a CSV file to build the map" />
+              </label>
+              <label className={`source-file ${tceData?.available ? "loaded" : ""} ${tceLoading ? "busy" : ""}`}>
+                <span className="source-file-status" aria-hidden="true">{tceData?.available ? "✓" : "2"}</span>
+                <span className="source-file-copy">
+                  <small>TCE Selection · optional</small>
+                  <strong>{tceLoading ? "Reading…" : tceData?.available ? tceData.source?.fileName ?? "TCE file" : "Not loaded"}</strong>
+                  {tceData?.available && <em>{formatNumber(tceData.count)} FCs</em>}
+                </span>
+                <span className="source-file-action"><Upload size={12} />{tceData?.available ? "Change" : "Select"}</span>
+                <input ref={tceFileInputRef} type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => void uploadTceWorkbook(event)} disabled={tceLoading} aria-label="Select TCE Excel file" />
+              </label>
+              {tceError && <p className="tce-file-error">{tceError}</p>}
+              <label className={`source-file ${revenueContributionData?.available ? "loaded" : ""} ${revenueContributionLoading ? "busy" : ""}`}>
+                <span className="source-file-status" aria-hidden="true">{revenueContributionData?.available ? "✓" : "3"}</span>
+                <span className="source-file-copy">
+                  <small>Revenue Contribution · optional</small>
+                  <strong>{revenueContributionLoading ? "Reading…" : revenueContributionData?.available ? revenueContributionData.source?.fileName ?? "Revenue file" : "Not loaded"}</strong>
+                  {revenueContributionData?.available && <em>{formatNumber(revenueContributionData.count)} FCs</em>}
+                </span>
+                <span className="source-file-action"><Upload size={12} />{revenueContributionData?.available ? "Change" : "Select"}</span>
+                <input type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => void uploadRevenueWorkbook(event)} disabled={revenueContributionLoading} aria-label="Select Revenue Contribution Excel file" />
+              </label>
+              {revenueError && <p className="tce-file-error">{revenueError}</p>}
             </div>
-            <label className={`file-upload ${uploading ? "loading-file" : ""}`}>
-              <Upload size={15} />
-              <span><strong>{uploading ? "Processing file…" : "Select CSV file"}</strong><small>.csv · up to 250 MB</small></span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(event) => void uploadWorkbook(event)}
-                disabled={uploading}
-                aria-label="Select a CSV file to build the map"
-              />
-            </label>
+            {folderReport && <p className="folder-report">{folderReport}</p>}
             {uploadError && <p className="file-upload-error">{uploadError}</p>}
             <p className="local-privacy-note"><ShieldCheck size={12} /> Files are processed in this browser and stored only on this computer. Nothing is uploaded.</p>
             {hasLocalData !== null && (hasLocalData || tceData?.available || revenueContributionData?.available) && (
@@ -1390,12 +1470,16 @@ export function RelationshipMap({ appVersion }: { appVersion: string }) {
                   <li><strong>TCE Selection.xlsx</strong><span>Optional · Show TCE only</span></li>
                   <li><strong>Revenue Contribution.xlsx</strong><span>Optional · revenue &amp; units</span></li>
                 </ul>
-                <label className={`welcome-picker ${uploading ? "loading-file" : ""}`}>
-                  <Upload size={15} />
-                  <span>{uploading ? "Processing files…" : "Select files"}</span>
+                <button type="button" className={`welcome-picker ${uploading ? "loading-file" : ""}`} onClick={() => void selectDataFolder()} disabled={uploading}>
+                  <FolderOpen size={15} />
+                  <span>{uploading ? "Processing files…" : "Select data folder"}</span>
+                </button>
+                <small>Choose the folder that contains the three files; they are found by name.</small>
+                <label className="welcome-secondary-picker">
+                  <span>or select the files individually (Ctrl + click to pick several)</span>
                   <input type="file" multiple accept=".csv,text/csv,.xlsx,.xls" onChange={(event) => void selectLocalFiles(event)} disabled={uploading} aria-label="Select local data files" />
                 </label>
-                <small>You can select the three files at once. Workbooks are detected automatically.</small>
+                {folderReport && <p className="folder-report">{folderReport}</p>}
                 {uploadError && <p className="file-upload-error">{uploadError}</p>}
                 <p className="welcome-privacy"><ShieldCheck size={12} /> The processed data is kept in this browser so the next visit opens instantly. Remove it any time from the Source panel.</p>
               </div>

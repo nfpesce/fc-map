@@ -422,3 +422,28 @@ select { color-scheme: dark; }
 .local-forget-button { margin-top: 8px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; border-radius: 9px; border: 1px solid rgba(255,107,107,.25); background: rgba(255,107,107,.06); color: #ffb1aa; font-size: 9px; cursor: pointer; }
 .local-forget-button:hover { background: rgba(255,107,107,.12); }
 .local-forget-button:disabled { opacity: .45; cursor: not-allowed; }
+.welcome-picker { font-family: inherit; }
+.welcome-picker:disabled { opacity: .65; cursor: wait; }
+.welcome-secondary-picker { position: relative; display: inline-block; margin-top: 12px; color: #9fb2e6; font-size: 10px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.welcome-secondary-picker:hover { color: #c7d3f5; }
+.welcome-secondary-picker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.folder-report { margin: 10px 0 0; color: #b9c8e8; font-size: 9px; line-height: 1.5; word-break: break-word; }
+.folder-button { margin-top: 8px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 32px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(99,145,255,.32); background: rgba(79,140,255,.1); color: #dce6ff; font-size: 10px; cursor: pointer; font-family: inherit; }
+.folder-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-button:hover { background: rgba(79,140,255,.18); }
+.folder-button:disabled, .folder-change-link:disabled { opacity: .45; cursor: not-allowed; }
+.folder-change-link { display: block; margin: 5px auto 0; border: 0; background: none; color: #9fb2e6; font-size: 9px; text-decoration: underline; cursor: pointer; font-family: inherit; }
+.visually-hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.source-files { display: grid; gap: 6px; margin-top: 10px; }
+.source-file { position: relative; display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 10px; border: 1px dashed rgba(139,167,255,.35); background: rgba(255,255,255,.025); cursor: pointer; }
+.source-file:hover { background: rgba(79,140,255,.08); border-color: rgba(139,167,255,.6); }
+.source-file.loaded { border-style: solid; border-color: var(--line); }
+.source-file.busy { opacity: .65; cursor: wait; }
+.source-file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.source-file-status { flex: 0 0 auto; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; font-size: 10px; font-weight: 700; color: #9fb2e6; background: rgba(79,140,255,.12); border: 1px solid rgba(139,167,255,.3); }
+.source-file.loaded .source-file-status { color: #0f1420; background: #45d39a; border-color: #45d39a; }
+.source-file-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.source-file-copy small { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .06em; }
+.source-file-copy strong { font-size: 10px; line-height: 1.35; word-break: break-word; }
+.source-file-copy em { font-style: normal; color: var(--muted); font-size: 8.5px; }
+.source-file-action { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; color: #b9c8f3; font-size: 9px; }

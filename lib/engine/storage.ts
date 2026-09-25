@@ -6,7 +6,7 @@ const DB_NAME = "fc-map-local-data";
 const STORE = "entries";
 const DB_VERSION = 1;
 
-export type StorageKey = "dataset" | "tce" | "revenue";
+export type StorageKey = "dataset" | "tce" | "revenue" | "folderHandle";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

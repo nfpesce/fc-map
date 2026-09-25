@@ -26,12 +26,14 @@ Privacy guarantees:
 ## Usage
 
 1. Open https://nfpesce.github.io/fc-map/ (Chrome or Edge recommended).
-2. Select or drop your local files. You can pick all three at once; workbooks are detected automatically by their columns:
+2. Click **Select data folder** and choose the folder that contains the three files. They are found by name (other files in the folder are ignored):
    - `Magellan PPN Tool Extended Export.csv` (required).
    - `TCE Selection.xlsx` (optional, enables `Show TCE only`).
    - `Revenue Contribution.xlsx` (optional, enables `Revenue Contribution & Units` in Zoom In).
+
+   Alternatively, select or drop the files individually. Each file can also be loaded or replaced from the **Source** panel.
 3. Choose the initial `comm2`. On later visits the map opens from the browser cache without selecting files again.
-4. To refresh the data, pick a new CSV or workbook from the sidebar.
+4. To refresh the data, use **Reload from folder** in the Source panel (Chrome/Edge remember the folder; the browser asks once per visit to allow read access), or pick new files there.
 
 ## Development
 
